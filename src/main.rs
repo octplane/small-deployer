@@ -18,7 +18,11 @@ use hyper::server::Handler;
 use rustc_serialize::json::decode;
 
 use std::thread;
+use std::process::Stdio;
 use std::process::Command;
+
+use std::sync::mpsc::{Receiver, channel};
+use std::io::{self};
 
 #[derive(RustcDecodable)]
 pub struct HookConfiguration  {
@@ -61,16 +65,37 @@ impl Daemon {
 		println!("{:?}", hk.action.cmd );
 
     let parms = &hk.action.parms;
-    let output = Command::new(&hk.action.cmd)
+    let mut child = match Command::new(&hk.action.cmd)
       .args(parms.as_slice())
       .current_dir(&hk.action.pwd)
-      .output().unwrap_or_else(|e| {
-      panic!("failed to execute process: {}", e)
-    });
+      .stdin(Stdio::null())
+      .spawn() {
+        Err(why) => panic!("couldn't spawn {}: {}", &hk.action.cmd, why.description()),
+        Ok(child) => child,
+    };
+    drop(child.stdin.take());
 
-    println!("status: {}", output.status);
-    println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-    println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
+    fn read<T: Read + Send + 'static>(stream: Option<T>) -> Receiver<io::Result<Vec<u8>>> {
+      let (tx, rx) = channel();
+      match stream {
+        Some(stream) => {
+          thread::spawn(move || {
+            let mut stream = stream;
+            let mut ret = Vec::new();
+            let res = stream.read_to_end(&mut ret);
+            tx.send(res.map(|_| ret)).unwrap();
+          });
+        }
+        None => tx.send(Ok(Vec::new())).unwrap()
+      }
+      rx
+    }
+
+    let stdout = read(child.stdout.take());
+    let stderr = read(child.stderr.take());
+    let status = child.wait();
+
 	}
 }
 
