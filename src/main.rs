@@ -17,6 +17,8 @@ use hyper::net::Fresh;
 use hyper::server::Handler;
 use rustc_serialize::json::decode;
 
+use std::thread;
+use std::process::Command;
 
 #[derive(RustcDecodable)]
 pub struct HookConfiguration  {
@@ -31,10 +33,10 @@ pub struct HookConfig {
 
 #[derive(RustcDecodable)]
 pub struct HookAction  {
-	script: String,
+  cmd: String,
+	parms: Vec<String>,
 	pwd: String,
 }
-
 
 #[derive(RustcDecodable)]
 pub struct GitHook  {
@@ -56,10 +58,21 @@ pub struct Daemon {
 impl Daemon {
 	fn deploy(&self, hk: &HookConfig) {
 		println!("Processing {}", hk.name);
-		println!("{:?}", hk.action.script );
+		println!("{:?}", hk.action.cmd );
+
+    let parms = &hk.action.parms;
+    let output = Command::new(&hk.action.cmd)
+      .args(parms.as_slice())
+      .current_dir(&hk.action.pwd)
+      .output().unwrap_or_else(|e| {
+      panic!("failed to execute process: {}", e)
+    });
+
+    println!("status: {}", output.status);
+    println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 	}
 }
-
 
 impl Handler for Daemon {
 	fn handle(&self, req: Request, res: Response<Fresh>) {

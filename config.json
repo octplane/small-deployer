@@ -2,7 +2,8 @@
 	"hooks": [{
 		"name": "Diaspora",
 		"action": {
-			"script": "sleep 3000",
+			"cmd": "ls",
+			"parms": [],
 			"pwd": "/tmp/"
 		}
 	}]
