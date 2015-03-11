@@ -66,21 +66,20 @@ impl Handler for Daemon {
 
 		let mut s = String::new();
 		let mut myreq = req;
-		let err = myreq.read_to_string(&mut s);
+		match myreq.read_to_string(&mut s) {
+			Ok(_) => {
+				let decoded: GitHook = decode(s.as_slice()).unwrap();
+				let repo_name = decoded.repository.name;
 
-		// match err {
-		// 	Err(e) => println!("Failed to read file: {:?}", e),
-		// 	_ => {
-		// 	    let decoded: GitHook = decode(s.as_slice()).unwrap();
-		// 	    let repo_name = decoded.repository.name;
+				println!("Repository {}", repo_name);
+				match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
+					Some(hk) => self.deploy(hk),
+					None => println!("No hook for {}", repo_name),
+				}
+			},
+			_ => {}
+		}
 
-		// 	    println!("Repository {}", repo_name);
-		// 	    match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
-		// 	    	Some(hk) => self.deploy(hk),
-		// 	    	None => println!("No hook for {}", repo_name),
-		// 	    }
-		// 	}
-		// }
 
 	    let mut res = res.start().unwrap();
 	    res.write_all(b"OK.").unwrap();
