@@ -1,0 +1,10 @@
+[package]
+
+name = "webhook-client-rust"
+version = "0.0.1"
+authors = ["Pierre Baillet <pierre@baillet.name>"]
+
+[dependencies]
+
+hyper = "0.3.0"
+rustc-serialize = "*"

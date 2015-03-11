@@ -1,0 +1,9 @@
+{
+	"hooks": [{
+		"name": "Diaspora",
+		"action": {
+			"script": "sleep 3000",
+			"pwd": "/tmp/"
+		}
+	}]
+}
