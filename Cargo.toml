@@ -6,5 +6,6 @@ authors = ["Pierre Baillet <pierre@baillet.name>"]
 
 [dependencies]
 
-hyper = "0.3.0"
 rustc-serialize = "*"
+time = "*"
+hyper = "0.3.0"

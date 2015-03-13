@@ -5,6 +5,7 @@
 
 extern crate hyper;
 extern crate "rustc-serialize" as rustc_serialize;
+extern crate time;
 
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -17,10 +18,11 @@ use hyper::uri::RequestUri;
 use hyper::net::Fresh;
 use hyper::server::Handler;
 use rustc_serialize::json::decode;
-
 use std::thread;
 use std::process::Stdio;
 use std::process::Command;
+
+use std::fmt;
 
 use std::sync::mpsc::{Receiver, channel};
 use std::io::{self};
@@ -60,6 +62,30 @@ pub struct Daemon {
 	config: HookConfiguration,
 }
 
+#[derive(Debug)]
+#[derive(Clone)]
+enum LogSource {
+  StdOut,
+  StdErr,
+}
+
+#[derive(Debug)]
+pub struct Line {
+  source: LogSource,
+  time: time::Tm,
+  content: String,
+}
+
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let format = "%Y-%m-%d %T.%f";
+        // The `f` value implements the `Write` trait, which is what the
+        // write! macro is expecting. Note that this formatting ignores the
+        // various flags provided to format strings.
+        write!(f, "[{:?}][{}] {}", self.source, time::strftime(format, &self.time).ok().unwrap(), self.content)
+    }
+}
+
 impl Daemon {
 	fn deploy(&self, hk: &HookConfig) {
 		println!("Processing {}", hk.name);
@@ -78,19 +104,20 @@ impl Daemon {
     };
 
     //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
-    fn read<T: Read + Send + 'static>(stream: Option<T>) -> Receiver<io::Result<Vec<String>>> {
+    fn read<T: Read + Send + 'static>(stream: Option<T>, source: LogSource) -> Receiver<io::Result<Vec<Line>>> {
       let (tx, rx) = channel();
       match stream {
         Some(stream) => {
           thread::spawn(move || {
             let mut br = BufReader::with_capacity(64, stream);
-            let mut ls: Vec<String> = Vec::new();
+            let mut ls: Vec<Line> = Vec::new();
             while {
               let mut line = String::new();
               let read_status = br.read_line(&mut line);
               let ok = read_status == Ok(()) && line != "";
               if ok {
-                ls.push(line);
+                let now = time::now();
+                ls.push(Line{source: source.clone(), time: now, content: line});
               }
               ok
             } {}
@@ -98,13 +125,13 @@ impl Daemon {
             tx.send(Ok(ls)).unwrap();
           });
         }
-        None => tx.send(Ok(Vec::<String>::new())).unwrap()
+        None => tx.send(Ok(Vec::<Line>::new())).unwrap()
       }
       rx
     }
 
-    let stdout = read(child.stdout.take());
-    let stderr = read(child.stderr.take());
+    let stdout = read(child.stdout.take(), LogSource::StdOut);
+    let stderr = read(child.stderr.take(), LogSource::StdErr);
     let status = child.wait();
 
     match stdout.recv() {
