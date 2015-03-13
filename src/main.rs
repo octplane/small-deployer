@@ -7,6 +7,7 @@ extern crate hyper;
 extern crate "rustc-serialize" as rustc_serialize;
 
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::fs::File;
 use std::net::IpAddr;
 use hyper::Server;
@@ -69,25 +70,35 @@ impl Daemon {
       .args(parms.as_slice())
       .current_dir(&hk.action.pwd)
       .stdin(Stdio::null())
+      .stdout(Stdio::piped())
+      .stderr(Stdio::piped())
       .spawn() {
         Err(why) => panic!("couldn't spawn {}: {}", &hk.action.cmd, why.description()),
         Ok(child) => child,
     };
-    drop(child.stdin.take());
 
     //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
-    fn read<T: Read + Send + 'static>(stream: Option<T>) -> Receiver<io::Result<Vec<u8>>> {
+    fn read<T: Read + Send + 'static>(stream: Option<T>) -> Receiver<io::Result<Vec<String>>> {
       let (tx, rx) = channel();
       match stream {
         Some(stream) => {
           thread::spawn(move || {
-            let mut stream = stream;
-            let mut ret = Vec::new();
-            let res = stream.read_to_end(&mut ret);
-            tx.send(res.map(|_| ret)).unwrap();
+            let mut br = BufReader::with_capacity(64, stream);
+            let mut ls: Vec<String> = Vec::new();
+            while {
+              let mut line = String::new();
+              let read_status = br.read_line(&mut line);
+              let ok = read_status == Ok(()) && line != "";
+              if ok {
+                ls.push(line);
+              }
+              ok
+            } {}
+
+            tx.send(Ok(ls)).unwrap();
           });
         }
-        None => tx.send(Ok(Vec::new())).unwrap()
+        None => tx.send(Ok(Vec::<String>::new())).unwrap()
       }
       rx
     }
@@ -96,6 +107,17 @@ impl Daemon {
     let stderr = read(child.stderr.take());
     let status = child.wait();
 
+    match stdout.recv() {
+      Ok(Ok(s)) => println!("{:?}", s),
+      Ok(Err(e)) => panic!("IOError {}", e),
+      Err(e) => panic!("RecvError {}", e),
+    }
+
+    match stderr.recv() {
+      Ok(Ok(s)) => println!("{:?}", s),
+      Ok(Err(e)) => panic!("IOError {}", e),
+      Err(e) => panic!("RecvError {}", e),
+    }
 	}
 }
 
