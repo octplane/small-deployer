@@ -27,6 +27,8 @@ use std::process::Command;
 use std::sync::mpsc::{Receiver, channel};
 use std::io::{self};
 
+use std::fmt;
+
 #[derive(RustcDecodable)]
 pub struct HookConfiguration  {
 	hooks: Vec<HookConfig>,
@@ -61,7 +63,7 @@ pub struct Repository {
 pub struct Daemon {
 	config: HookConfiguration,
 }
- 
+
 #[derive(Debug)]
 #[derive(Clone)]
 enum LogSource {
@@ -76,10 +78,25 @@ pub struct TimestampedLine {
   content: String,
 }
 
+impl fmt::Display for TimestampedLine {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.write_fmt(format_args!("[{:?}][{}] {}", self.source, to_string(self.time), self.content))
+    }
+}
+
+
+fn to_string(time: time::Tm) -> String {
+    let format = "%Y-%m-%d %T.%f";
+    let mut ts = time::strftime(format, &time).ok().unwrap();
+    let l = ts.len();
+    ts.truncate(l-6);
+    ts
+}
+
 
 impl Daemon {
 	fn deploy(&self, hk: &HookConfig) {
-		println!("Processing {}", hk.name);
+		println!("[deploy][{}] Processing {}", to_string(time::now()), hk.name);
 
     let parms = &hk.action.parms;
     let mut child = match Command::new(&hk.action.cmd)
@@ -140,19 +157,21 @@ impl Daemon {
     match status {
       Ok(estatus) => {
         if estatus.success() {
-          println!("Deploy completed successfully");
+          println!("[deploy][{}] Deploy completed successfully", to_string(time::now()));
         } else {
           match estatus.code() {
-            Some(exit_code) => println!("Deploy aborted with status {}.", exit_code),
+            Some(exit_code) => println!("[deploy][{}] Deploy aborted with status {}.", to_string(time::now()), exit_code),
             None => match estatus.signal() {
-              Some(signal_value) => println!("Deploy was interrupted with signal {}.", signal_value ),
-              None => println!("This should never happend."),
+              Some(signal_value) => println!("[deploy][{}] Deploy was interrupted with signal {}.", to_string(time::now()), signal_value),
+              None => println!("[deploy][{}] This should never happend.", to_string(time::now())),
             }
           }
-          println!("Stdout:");
-          println!("{:?}", stdout);
-          println!("Stderr:");
-          println!("{:?}", stderr);
+          for line in stdout {
+            println!("{}", line);
+          }
+          for line in stderr {
+            println!("{}", line);
+          }
         }
       },
       Err(e) => println!("An error occured: {:?}",e),
