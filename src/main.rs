@@ -2,12 +2,14 @@
 #![feature(io)]
 #![feature(net)]
 #![feature(old_path)]
+#![feature(std_misc)]
 
 extern crate hyper;
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate time;
 
 use std::io::prelude::*;
+use std::os::unix::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
 use std::net::IpAddr;
@@ -21,8 +23,6 @@ use rustc_serialize::json::decode;
 use std::thread;
 use std::process::Stdio;
 use std::process::Command;
-
-use std::fmt;
 
 use std::sync::mpsc::{Receiver, channel};
 use std::io::{self};
@@ -61,7 +61,7 @@ pub struct Repository {
 pub struct Daemon {
 	config: HookConfiguration,
 }
-
+ 
 #[derive(Debug)]
 #[derive(Clone)]
 enum LogSource {
@@ -70,26 +70,16 @@ enum LogSource {
 }
 
 #[derive(Debug)]
-pub struct Line {
+pub struct TimestampedLine {
   source: LogSource,
   time: time::Tm,
   content: String,
 }
 
-impl fmt::Display for Line {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let format = "%Y-%m-%d %T.%f";
-        // The `f` value implements the `Write` trait, which is what the
-        // write! macro is expecting. Note that this formatting ignores the
-        // various flags provided to format strings.
-        write!(f, "[{:?}][{}] {}", self.source, time::strftime(format, &self.time).ok().unwrap(), self.content)
-    }
-}
 
 impl Daemon {
 	fn deploy(&self, hk: &HookConfig) {
 		println!("Processing {}", hk.name);
-		println!("{:?}", hk.action.cmd );
 
     let parms = &hk.action.parms;
     let mut child = match Command::new(&hk.action.cmd)
@@ -104,46 +94,68 @@ impl Daemon {
     };
 
     //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
-    fn read<T: Read + Send + 'static>(stream: Option<T>, source: LogSource) -> Receiver<io::Result<Vec<Line>>> {
+    fn read_timestamped_lines<T: Read + Send + 'static>(stream: Option<T>, source: LogSource) -> Receiver<io::Result<Vec<TimestampedLine>>> {
       let (tx, rx) = channel();
       match stream {
         Some(stream) => {
           thread::spawn(move || {
             let mut br = BufReader::with_capacity(64, stream);
-            let mut ls: Vec<Line> = Vec::new();
+            let mut lines: Vec<TimestampedLine> = Vec::new();
             while {
               let mut line = String::new();
               let read_status = br.read_line(&mut line);
-              let ok = read_status == Ok(()) && line != "";
+              let ok = line != "";
               if ok {
                 let now = time::now();
-                ls.push(Line{source: source.clone(), time: now, content: line});
+                lines.push(TimestampedLine{source: source.clone(), time: now, content: line});
               }
               ok
             } {}
 
-            tx.send(Ok(ls)).unwrap();
+            tx.send(Ok(lines)).unwrap();
           });
         }
-        None => tx.send(Ok(Vec::<Line>::new())).unwrap()
+        None => tx.send(Ok(Vec::<TimestampedLine>::new())).unwrap()
       }
       rx
     }
 
-    let stdout = read(child.stdout.take(), LogSource::StdOut);
-    let stderr = read(child.stderr.take(), LogSource::StdErr);
+    let stdout = read_timestamped_lines(child.stdout.take(), LogSource::StdOut);
+    let stderr = read_timestamped_lines(child.stderr.take(), LogSource::StdErr);
+
     let status = child.wait();
 
-    match stdout.recv() {
-      Ok(Ok(s)) => println!("{:?}", s),
+    let stdout = match stdout.recv() {
+      Ok(Ok(s)) => s,
       Ok(Err(e)) => panic!("IOError {}", e),
       Err(e) => panic!("RecvError {}", e),
-    }
+    };
 
-    match stderr.recv() {
-      Ok(Ok(s)) => println!("{:?}", s),
+    let stderr = match stderr.recv() {
+      Ok(Ok(s)) => s,
       Ok(Err(e)) => panic!("IOError {}", e),
       Err(e) => panic!("RecvError {}", e),
+    };
+
+    match status {
+      Ok(estatus) => {
+        if estatus.success() {
+          println!("Deploy completed successfully");
+        } else {
+          match estatus.code() {
+            Some(exit_code) => println!("Deploy aborted with status {}.", exit_code),
+            None => match estatus.signal() {
+              Some(signal_value) => println!("Deploy was interrupted with signal {}.", signal_value ),
+              None => println!("This should never happend."),
+            }
+          }
+          println!("Stdout:");
+          println!("{:?}", stdout);
+          println!("Stderr:");
+          println!("{:?}", stderr);
+        }
+      },
+      Err(e) => println!("An error occured: {:?}",e),
     }
 	}
 }
@@ -159,7 +171,6 @@ impl Handler for Daemon {
 					match decode::<GitHook>(s.as_slice()) {
 						Ok(decoded ) => {
 							let repo_name = decoded.repository.name;
-							println!("Repository {}", repo_name);
 							match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
 								Some(hk) => self.deploy(hk),
 								None => println!("No hook for {}", repo_name),
