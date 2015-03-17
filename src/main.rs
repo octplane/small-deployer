@@ -144,7 +144,7 @@ impl Dispatch {
         }
       }
       println!("[{}] Stopping dispatcher", to_string(time::now()));
-    }).join();
+    });
 
   }
 }
@@ -171,10 +171,11 @@ impl Deployer {
   }
 
 	fn deploy(&self) {
-    let hk = &self.conf
+    let hk = &self.conf;
+
 		println!("[{}][{}] Processing.", to_string(time::now()), self.name);
 
-    let parms = &hk.action.parms;
+    let parms = &hk.parms;
     let mut child = match Command::new(&hk.cmd)
       .args(parms.as_slice())
       .current_dir(&hk.pwd)
@@ -234,6 +235,7 @@ impl Deployer {
       Ok(estatus) => {
         if estatus.success() {
           println!("[deploy][{}] Deploy completed successfully", to_string(time::now()));
+          self.message(format!(":sunny: {} deployed successfully !", self.name));
         } else {
           match estatus.code() {
             Some(exit_code) => println!("[deploy][{}] Deploy aborted with status {}.", to_string(time::now()), exit_code),
@@ -253,11 +255,11 @@ impl Deployer {
       Err(e) => println!("An error occured: {:?}",e),
     }
 	}
-  fn message(&self, message: &str) {
+  fn message(&self, message: String) {
     // http://www.emoji-cheat-sheet.com/
     let slack = Slack::new(self.slack_url.as_slice());
     let p = Payload::new(PayloadTemplate::Complete {
-      text: Some(message),
+      text: Some(message.as_slice()),
       channel: Some("#deploys"),
       username: Some("Deployr"),
       icon_url: None,

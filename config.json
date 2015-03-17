@@ -3,7 +3,7 @@
 		"name": "Diaspora",
 		"action": {
 			"cmd": "ls",
-			"parms": ["pipo"],
+			"parms": [],
 			"pwd": "."
 		}
 	}],
