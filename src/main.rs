@@ -162,7 +162,7 @@ impl Deployer {
     println!("[{}][{}] Starting deployer.", to_string(time::now()), self.name);
     while{
       match rx.recv() {
-        Ok(DeployMessage::Deploy(hk)) => { println!("{}", hk.name); true },
+        Ok(DeployMessage::Deploy(hk)) => { self.deploy(); true },
         Ok(DeployMessage::Exit) => false,
         Err(e) => { println!("Error: {}", e); false }
       }
@@ -170,18 +170,19 @@ impl Deployer {
     println!("[{}][{}] Stopping deployer.", to_string(time::now()), self.name);
   }
 
-	fn deploy(&self, hk: &HookConfig) {
-		println!("[{}][{}] Processing.", to_string(time::now()), hk.name);
+	fn deploy(&self) {
+    let hk = &self.conf
+		println!("[{}][{}] Processing.", to_string(time::now()), self.name);
 
     let parms = &hk.action.parms;
-    let mut child = match Command::new(&hk.action.cmd)
+    let mut child = match Command::new(&hk.cmd)
       .args(parms.as_slice())
-      .current_dir(&hk.action.pwd)
+      .current_dir(&hk.pwd)
       .stdin(Stdio::null())
       .stdout(Stdio::piped())
       .stderr(Stdio::piped())
       .spawn() {
-        Err(why) => panic!("couldn't spawn {}: {}", &hk.action.cmd, why.to_string()),
+        Err(why) => panic!("couldn't spawn {}: {}", &hk.cmd, why.to_string()),
         Ok(child) => child,
     };
 
