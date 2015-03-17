@@ -9,3 +9,4 @@ authors = ["Pierre Baillet <pierre@baillet.name>"]
 rustc-serialize = "*"
 time = "*"
 hyper = "0.3.0"
+slack-hook = "0.0.2"

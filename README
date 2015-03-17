@@ -1,3 +1,22 @@
 README
 
-curl -X POST -d @sample.json http://127.0.0.1:5000/hook
+This is a git webhook client in rust.
+
+- configure /hook/ as the git hook endpoint
+- send commit.
+- the application will try to find a project whose name is matching the commit passed in config.json
+- it will run the command specified in action and write the stdout and stderr logs in its logs.
+
+RUN
+
+- cargo run
+
+TEST
+
+Test a sample commit:
+
+curl -X POST -d @sample.json http://127.0.0.1:5000/hook/
+
+TODO
+
+Use external application to journalize the logs

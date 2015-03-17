@@ -6,5 +6,6 @@
 			"parms": ["pipo"],
 			"pwd": "."
 		}
-	}]
+	}],
+	"slack": "https://hooks.slack.com/services/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"
 }

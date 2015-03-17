@@ -7,6 +7,7 @@
 extern crate hyper;
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate time;
+extern crate slackhook;
 
 use std::io::prelude::*;
 use std::os::unix::prelude::*;
@@ -23,24 +24,33 @@ use rustc_serialize::json::decode;
 use std::thread;
 use std::process::Stdio;
 use std::process::Command;
+use std::collections::HashMap;
 
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::{Mutex, Arc};
+use std::sync::mpsc::{Receiver, Sender, channel};
+
 use std::io::{self};
 
 use std::fmt;
 
+use slackhook::{Slack, Payload, PayloadTemplate};
+
 #[derive(RustcDecodable)]
+#[derive(Clone)]
 pub struct HookConfiguration  {
 	hooks: Vec<HookConfig>,
+  slack: String,
 }
 
 #[derive(RustcDecodable)]
+#[derive(Clone)]
 pub struct HookConfig {
 	name: String,
 	action: HookAction,
 }
 
 #[derive(RustcDecodable)]
+#[derive(Clone)]
 pub struct HookAction  {
   cmd: String,
 	parms: Vec<String>,
@@ -60,9 +70,6 @@ pub struct Repository {
 	url: String,
 }
 
-pub struct Daemon {
-	config: HookConfiguration,
-}
 
 #[derive(Debug)]
 #[derive(Clone)]
@@ -93,8 +100,54 @@ fn to_string(time: time::Tm) -> String {
     ts
 }
 
+enum DeployMessage {
+  Deploy(HookConfig),
+  Exit
+}
 
-impl Daemon {
+struct Dispatch {
+  config: HookConfiguration,
+  intercom: Receiver<DeployMessage>,
+  // chans: HashMap<String, Sender<DeployMessage>>,
+}
+
+struct Deployer {
+  name: String,
+  conf: HookAction,
+  intercom: Receiver<DeployMessage>,
+}
+
+impl Dispatch {
+  fn run(&self) {
+    let mut workers: HashMap<String, Deployer> = HashMap::new();
+    let mut to_workers: HashMap<String, Sender<DeployMessage>> = HashMap::new();
+    for conf in &self.config.hooks {
+      let (tx, rx) = channel();
+      let worker = Deployer{
+        name: conf.name.clone(),
+        conf: conf.action.clone(),
+        intercom: rx,
+      };
+      to_workers.insert(conf.name.clone(), tx);
+      workers.insert(conf.name.clone(), worker);
+    }
+  }
+    // thread::spawn(move || {
+    //   println!("[{}] Starting dispatched", to_string(time::now()));
+
+
+    // });
+}
+
+
+pub struct Daemon {
+  intercom: Arc<Mutex<Sender<DeployMessage>>>,
+  config: HookConfiguration,
+}
+
+struct Deployr;
+
+impl Deployr {
 	fn deploy(&self, hk: &HookConfig) {
 		println!("[deploy][{}] Processing {}", to_string(time::now()), hk.name);
 
@@ -177,6 +230,25 @@ impl Daemon {
       Err(e) => println!("An error occured: {:?}",e),
     }
 	}
+  // fn message(&self, message: &str) {
+  //   // http://www.emoji-cheat-sheet.com/
+  //   let p = Payload::new(PayloadTemplate::Complete {
+  //     text: Some(message),
+  //     channel: Some("#deploys"),
+  //     username: Some("Deployr"),
+  //     icon_url: None,
+  //     icon_emoji: Some(":computer:"),
+  //     attachments: None,
+  //     unfurl_links: Some(true),
+  //     link_names: Some(false)
+  //   });
+
+  //   let res = self.slack.send(&p);
+  //   match res {
+  //       Ok(()) => println!("ok"),
+  //       Err(x) => println!("ERR: {:?}",x)
+  //   }
+  // }
 }
 
 impl Handler for Daemon {
@@ -191,7 +263,9 @@ impl Handler for Daemon {
 						Ok(decoded ) => {
 							let repo_name = decoded.repository.name;
 							match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
-								Some(hk) => self.deploy(hk),
+								Some(hk) => {
+                  let _ = self.intercom.lock().unwrap().send(DeployMessage::Deploy(hk.clone()));
+                },
 								None => println!("No hook for {}", repo_name),
 							}
 						},
@@ -202,10 +276,9 @@ impl Handler for Daemon {
 			}
 		}
 
-
-	    let mut res = res.start().unwrap();
-	    res.write_all(b"OK.").unwrap();
-	    res.end().unwrap();
+    let mut res = res.start().unwrap();
+    res.write_all(b"OK.").unwrap();
+    res.end().unwrap();
 	}
 }
 
@@ -218,7 +291,7 @@ fn main() {
 
 	match File::open(config_location) {
 		Err(err) => panic!("Error during config file read: {:?}. {} {}",
-			config_location, err.description(), err.detail().unwrap_or("".to_string())),
+			config_location, err.description(), err.to_string()),
 		Ok(icf) => {
 			let mut config_file = icf;
 			config_file.read_to_string(&mut json_config).ok().unwrap()
@@ -230,10 +303,14 @@ fn main() {
 		Ok(content) => content,
 	};
 
-	let d = Daemon{config: config};
+  let (tx, rx) = channel();
+
+  let dispatcher = Dispatch{config: config.clone(), intercom: rx};
+	let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
+
 	let port = 5000;
 
 	println!("Starting up, listening on port {}", port);
-	Server::new(d).listen(IpAddr::new_v4(127, 0, 0, 1), port).unwrap();
+	Server::new(handler).listen(IpAddr::new_v4(127, 0, 0, 1), port).unwrap();
 
 }
