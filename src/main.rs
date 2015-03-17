@@ -22,7 +22,6 @@ use hyper::net::Fresh;
 use hyper::server::Handler;
 use rustc_serialize::json::decode;
 use std::thread;
-use std::thread::JoinGuard;
 use std::process::Stdio;
 use std::process::Command;
 use std::collections::HashMap;
@@ -60,15 +59,15 @@ pub struct HookAction  {
 
 #[derive(RustcDecodable)]
 pub struct GitHook  {
-    before: String,
-    after: String,
+    // before: String,
+    // after: String,
     repository: Repository,
 }
 
 #[derive(RustcDecodable)]
 pub struct Repository {
 	name: String,
-	url: String,
+	// url: String,
 }
 
 
@@ -109,18 +108,17 @@ enum DeployMessage {
 
 struct Dispatch {
   config: HookConfiguration,
-  intercom: Receiver<DeployMessage>,
 }
 
 impl Dispatch {
-  fn run(&self) {
-    let mut guards: HashMap<String, JoinGuard<()>> = HashMap::new();
+  fn run(&self, rx: Receiver<DeployMessage>) {
     let mut to_workers: HashMap<String, Sender<DeployMessage>> = HashMap::new();
     let mut workers: HashMap<String, Deployer> = HashMap::new();
     for conf in &self.config.hooks {
       let worker = Deployer{
         name: conf.name.clone(),
         conf: conf.action.clone(),
+        slack_url: (&self).config.slack.clone(),
       };
       workers.insert(conf.name.clone(), worker);
     }
@@ -129,32 +127,25 @@ impl Dispatch {
       let (tx, rx) = channel();
       to_workers.insert(name.clone(), tx);
 
-      let guard = thread::scoped(move || {
+      thread::spawn(move || {
         worker.run(rx);
       });
-
-      guards.insert(name.clone(),guard);
     }
 
-    let rx = self.intercom;
     thread::spawn(move || {
       println!("[{}] Starting dispatcher", to_string(time::now()));
-      while {
-        match rx.recv() {
-          Ok(DeployMessage::Deploy(hk)) => {
+      while let Ok(data) = rx.recv() {
+        match data {
+          DeployMessage::Deploy(hk) => {
             println!("Want to deploy {}", hk.name);
-            // to_workers.get(&hk.name).unwrap().send(DeployMessage::Deploy(hk));
-            true
+            to_workers.get(&hk.name).unwrap().send(DeployMessage::Deploy(hk));
           },
-          Ok(DeployMessage::Exit) => false,
-          Err(e) => { println!("Error: {}", e); false }
+          DeployMessage::Exit => println!("We should exit"),
         }
-      } {}
+      }
+      println!("[{}] Stopping dispatcher", to_string(time::now()));
     }).join();
 
-    for (name, g) in guards {
-      g.join();
-    }
   }
 }
 
@@ -163,6 +154,7 @@ impl Dispatch {
 struct Deployer {
   name: String,
   conf: HookAction,
+  slack_url: String,
 }
 
 impl Deployer {
@@ -189,7 +181,7 @@ impl Deployer {
       .stdout(Stdio::piped())
       .stderr(Stdio::piped())
       .spawn() {
-        Err(why) => panic!("couldn't spawn {}: {}", &hk.action.cmd, why.description()),
+        Err(why) => panic!("couldn't spawn {}: {}", &hk.action.cmd, why.to_string()),
         Ok(child) => child,
     };
 
@@ -260,25 +252,26 @@ impl Deployer {
       Err(e) => println!("An error occured: {:?}",e),
     }
 	}
-  // fn message(&self, message: &str) {
-  //   // http://www.emoji-cheat-sheet.com/
-  //   let p = Payload::new(PayloadTemplate::Complete {
-  //     text: Some(message),
-  //     channel: Some("#deploys"),
-  //     username: Some("Deployr"),
-  //     icon_url: None,
-  //     icon_emoji: Some(":computer:"),
-  //     attachments: None,
-  //     unfurl_links: Some(true),
-  //     link_names: Some(false)
-  //   });
+  fn message(&self, message: &str) {
+    // http://www.emoji-cheat-sheet.com/
+    let slack = Slack::new(self.slack_url.as_slice());
+    let p = Payload::new(PayloadTemplate::Complete {
+      text: Some(message),
+      channel: Some("#deploys"),
+      username: Some("Deployr"),
+      icon_url: None,
+      icon_emoji: Some(":computer:"),
+      attachments: None,
+      unfurl_links: Some(true),
+      link_names: Some(false)
+    });
 
-  //   let res = self.slack.send(&p);
-  //   match res {
-  //       Ok(()) => println!("ok"),
-  //       Err(x) => println!("ERR: {:?}",x)
-  //   }
-  // }
+    let res = slack.send(&p);
+    match res {
+        Ok(()) => println!("ok"),
+        Err(x) => println!("ERR: {:?}",x)
+    }
+  }
 }
 
 pub struct Daemon {
@@ -326,8 +319,8 @@ fn main() {
 	let config_location = &Path::new("config.json");
 
 	match File::open(config_location) {
-		Err(err) => panic!("Error during config file read: {:?}. {} {}",
-			config_location, err.description(), err.to_string()),
+		Err(err) => panic!("Error during config file read: {:?}. {}",
+			config_location, err.to_string()),
 		Ok(icf) => {
 			let mut config_file = icf;
 			config_file.read_to_string(&mut json_config).ok().unwrap()
@@ -341,7 +334,8 @@ fn main() {
 
   let (tx, rx) = channel();
 
-  let dispatcher = Dispatch{config: config.clone(), intercom: rx};
+  let dispatcher = Dispatch{config: config.clone()};
+  dispatcher.run(rx);
 	let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
 
 	let port = 5000;
