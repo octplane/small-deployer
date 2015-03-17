@@ -22,6 +22,7 @@ use hyper::net::Fresh;
 use hyper::server::Handler;
 use rustc_serialize::json::decode;
 use std::thread;
+use std::thread::JoinGuard;
 use std::process::Stdio;
 use std::process::Command;
 use std::collections::HashMap;
@@ -100,6 +101,7 @@ fn to_string(time: time::Tm) -> String {
     ts
 }
 
+#[derive(Clone)]
 enum DeployMessage {
   Deploy(HookConfig),
   Exit
@@ -108,48 +110,76 @@ enum DeployMessage {
 struct Dispatch {
   config: HookConfiguration,
   intercom: Receiver<DeployMessage>,
-  // chans: HashMap<String, Sender<DeployMessage>>,
-}
-
-struct Deployer {
-  name: String,
-  conf: HookAction,
-  intercom: Receiver<DeployMessage>,
 }
 
 impl Dispatch {
   fn run(&self) {
-    let mut workers: HashMap<String, Deployer> = HashMap::new();
+    let mut guards: HashMap<String, JoinGuard<()>> = HashMap::new();
     let mut to_workers: HashMap<String, Sender<DeployMessage>> = HashMap::new();
+    let mut workers: HashMap<String, Deployer> = HashMap::new();
     for conf in &self.config.hooks {
-      let (tx, rx) = channel();
       let worker = Deployer{
         name: conf.name.clone(),
         conf: conf.action.clone(),
-        intercom: rx,
       };
-      to_workers.insert(conf.name.clone(), tx);
       workers.insert(conf.name.clone(), worker);
     }
+
+    for (name, worker) in workers.into_iter() {
+      let (tx, rx) = channel();
+      to_workers.insert(name.clone(), tx);
+
+      let guard = thread::scoped(move || {
+        worker.run(rx);
+      });
+
+      guards.insert(name.clone(),guard);
+    }
+
+    let rx = self.intercom;
+    thread::spawn(move || {
+      println!("[{}] Starting dispatcher", to_string(time::now()));
+      while {
+        match rx.recv() {
+          Ok(DeployMessage::Deploy(hk)) => {
+            println!("Want to deploy {}", hk.name);
+            // to_workers.get(&hk.name).unwrap().send(DeployMessage::Deploy(hk));
+            true
+          },
+          Ok(DeployMessage::Exit) => false,
+          Err(e) => { println!("Error: {}", e); false }
+        }
+      } {}
+    }).join();
+
+    for (name, g) in guards {
+      g.join();
+    }
   }
-    // thread::spawn(move || {
-    //   println!("[{}] Starting dispatched", to_string(time::now()));
-
-
-    // });
 }
 
 
-pub struct Daemon {
-  intercom: Arc<Mutex<Sender<DeployMessage>>>,
-  config: HookConfiguration,
+
+struct Deployer {
+  name: String,
+  conf: HookAction,
 }
 
-struct Deployr;
+impl Deployer {
+  fn run(&self, rx: Receiver<DeployMessage>) {
+    println!("[{}][{}] Starting deployer.", to_string(time::now()), self.name);
+    while{
+      match rx.recv() {
+        Ok(DeployMessage::Deploy(hk)) => { println!("{}", hk.name); true },
+        Ok(DeployMessage::Exit) => false,
+        Err(e) => { println!("Error: {}", e); false }
+      }
+    } {}
+    println!("[{}][{}] Stopping deployer.", to_string(time::now()), self.name);
+  }
 
-impl Deployr {
 	fn deploy(&self, hk: &HookConfig) {
-		println!("[deploy][{}] Processing {}", to_string(time::now()), hk.name);
+		println!("[{}][{}] Processing.", to_string(time::now()), hk.name);
 
     let parms = &hk.action.parms;
     let mut child = match Command::new(&hk.action.cmd)
@@ -250,6 +280,12 @@ impl Deployr {
   //   }
   // }
 }
+
+pub struct Daemon {
+  intercom: Arc<Mutex<Sender<DeployMessage>>>,
+  config: HookConfiguration,
+}
+
 
 impl Handler for Daemon {
 	fn handle(&self, req: Request, res: Response<Fresh>) {
