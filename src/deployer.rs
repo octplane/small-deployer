@@ -23,13 +23,14 @@ enum LogSource {
 #[derive(Debug)]
 pub struct TimestampedLine {
   source: LogSource,
+  name: String,
   time: time::Tm,
   content: String,
 }
 
 impl fmt::Display for TimestampedLine {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_fmt(format_args!("[{:?}][{}] {}", self.source, to_string(self.time), self.content))
+        fmt.write_fmt(format_args!("[{}][{:?}] {}", to_string(self.time), self.source, self.content))
     }
 }
 
@@ -76,8 +77,9 @@ impl Deployer {
     };
 
     //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
-    fn read_timestamped_lines<T: Read + Send + 'static>(stream: Option<T>, source: LogSource) -> Receiver<io::Result<Vec<TimestampedLine>>> {
+    fn read_timestamped_lines<T: Read + Send + 'static>(stream: Option<T>, name: &str, source: LogSource) -> Receiver<io::Result<Vec<TimestampedLine>>> {
       let (tx, rx) = channel();
+      let sname = name.to_string();
       match stream {
         Some(stream) => {
           thread::spawn(move || {
@@ -92,7 +94,7 @@ impl Deployer {
               };
               if ok {
                 let now = time::now();
-                lines.push(TimestampedLine{source: source.clone(), time: now, content: line});
+                lines.push(TimestampedLine{source: source.clone(), name: sname.clone(), time: now, content: line});
               }
               ok
             } {}
@@ -105,37 +107,37 @@ impl Deployer {
       rx
     }
 
-    let stdout = read_timestamped_lines(child.stdout.take(), LogSource::StdOut);
-    let stderr = read_timestamped_lines(child.stderr.take(), LogSource::StdErr);
+    let stdout = read_timestamped_lines(child.stdout.take(), self.name.as_slice(), LogSource::StdOut);
+    let stderr = read_timestamped_lines(child.stderr.take(), self.name.as_slice(), LogSource::StdErr);
 
     let status = child.wait();
 
     let stdout = match stdout.recv() {
       Ok(Ok(s)) => s,
-      Ok(Err(e)) => panic!("IOError {}", e),
-      Err(e) => panic!("RecvError {}", e),
+      Ok(Err(e)) => panic!("Stdout IOError {}", e),
+      Err(e) => panic!("Stdout RecvError {}", e),
     };
 
     let stderr = match stderr.recv() {
       Ok(Ok(s)) => s,
-      Ok(Err(e)) => panic!("IOError {}", e),
-      Err(e) => panic!("RecvError {}", e),
+      Ok(Err(e)) => panic!("Stderr IOError {}", e),
+      Err(e) => panic!("Stderr RecvError {}", e),
     };
 
     match status {
       Ok(estatus) => {
         if estatus.success() {
-          println!("[deploy][{}] Deploy completed successfully", to_string(time::now()));
+          println!("[{}][{}] Deploy completed successfully", to_string(time::now()), self.name);
           self.message(format!(":sunny: {} deployed successfully !", self.name));
         } else {
           match estatus.code() {
             Some(exit_code) => {
-              println!("[deploy][{}] Deploy failed with status {}.", to_string(time::now()), exit_code);
+              println!("[{}][{}] Deploy failed with status {}.", to_string(time::now()), self.name, exit_code);
               self.message(format!(":umbrella: {} deployed failed.", self.name));
             },
             None => match estatus.signal() {
-              Some(signal_value) => println!("[deploy][{}] Deploy was interrupted with signal {}.", to_string(time::now()), signal_value),
-              None => println!("[deploy][{}] This should never happend.", to_string(time::now())),
+              Some(signal_value) => println!("[{}][{}] Deploy was interrupted with signal {}.", to_string(time::now()), self.name, signal_value),
+              None => println!("[{}][{}] This should never happend.", to_string(time::now()), self.name),
             }
           }
           for line in stdout {
