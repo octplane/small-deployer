@@ -129,7 +129,10 @@ impl Deployer {
           self.message(format!(":sunny: {} deployed successfully !", self.name));
         } else {
           match estatus.code() {
-            Some(exit_code) => println!("[deploy][{}] Deploy aborted with status {}.", to_string(time::now()), exit_code),
+            Some(exit_code) => {
+              println!("[deploy][{}] Deploy failed with status {}.", to_string(time::now()), exit_code);
+              self.message(format!(":umbrella: {} deployed failed.", self.name));
+            },
             None => match estatus.signal() {
               Some(signal_value) => println!("[deploy][{}] Deploy was interrupted with signal {}.", to_string(time::now()), signal_value),
               None => println!("[deploy][{}] This should never happend.", to_string(time::now())),
