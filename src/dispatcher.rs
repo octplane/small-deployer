@@ -34,23 +34,29 @@ impl Dispatcher {
       });
     }
 
-    thread::spawn(move || {
-      println!("[{}] Starting dispatcher", to_string(time::now()));
-      while let Ok(data) = rx.recv() {
-        match data {
-          DeployMessage::Deploy(hk) => {
-            let name = hk.name.clone();
-            println!("[{}] Want to deploy {}.", to_string(time::now()),  name);
-            match to_workers.get(&name).unwrap().send(DeployMessage::Deploy(hk)) {
-              Err(e) => println!("[{}] Send to deployer {} failed: {}.", to_string(time::now()), name, e.to_string() ),
-              _ => {}
-            }
-          },
-          DeployMessage::Exit => println!("We should exit"),
-        }
+    self.log("Starting dispatcher.");
+    while let Ok(data) = rx.recv() {
+      match data {
+        DeployMessage::Deploy(hk) => {
+          let name = hk.name.clone();
+          self.log(format!("Want to deploy {}.", name).as_slice());
+          match to_workers.get(&name).unwrap().send(DeployMessage::Deploy(hk)) {
+            Err(e) => println!("[{}][system] Send to deployer {} failed: {}.", to_string(time::now()), name, e.to_string() ),
+            _ => {}
+          }
+        },
+        DeployMessage::Exit => println!("We should exit."),
       }
-      println!("[{}] Stopping dispatcher", to_string(time::now()));
-    });
-
+    }
+    self.log("Stopping dispatcher.");
   }
+
+  fn name(&self) -> String {
+    "dispatcher".to_string()
+  }
+
+  fn log(&self, info: &str) {
+    println!("[{}][{}][system] {}", to_string(time::now()), self.name(), info);
+  }
+
 }

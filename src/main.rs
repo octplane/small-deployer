@@ -10,6 +10,8 @@ extern crate slackhook;
 use std::io::prelude::*;
 use std::fs::File;
 use std::net::IpAddr;
+use std::thread;
+
 use hyper::Server;
 use hyper::server::Request;
 use hyper::server::Response;
@@ -105,12 +107,14 @@ pub fn main() {
   let (tx, rx) = channel();
 
   let dispatcher = Dispatcher{config: config.clone()};
-  dispatcher.run(rx);
+  thread::spawn(move || {
+    dispatcher.run(rx);
+  });
 	let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
 
 	let port = 5000;
 
-	println!("Starting up, listening on port {}", port);
+	println!("Starting up, listening on port {}.", port);
 	Server::new(handler).listen(IpAddr::new_v4(127, 0, 0, 1), port).unwrap();
 
 }

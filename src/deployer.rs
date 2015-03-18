@@ -30,7 +30,7 @@ pub struct TimestampedLine {
 
 impl fmt::Display for TimestampedLine {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_fmt(format_args!("[{}][{:?}] {}", to_string(self.time), self.source, self.content))
+        fmt.write_fmt(format_args!("[{}][{}][{:?}] {}", to_string(self.time), self.name, self.source, self.content))
     }
 }
 
@@ -48,7 +48,7 @@ pub struct Deployer {
 
 impl Deployer {
   pub fn run(&self, rx: Receiver<DeployMessage>) {
-    println!("[{}][{}] Starting deployer.", to_string(time::now()), self.name);
+    self.log("Starting deployer.");
     while{
       match rx.recv() {
         Ok(DeployMessage::Deploy(_)) => { self.deploy(); true },
@@ -56,13 +56,13 @@ impl Deployer {
         Err(e) => { println!("Error: {}", e); false }
       }
     } {}
-    println!("[{}][{}] Stopping deployer.", to_string(time::now()), self.name);
+    self.log("Stopping deployer.");
   }
 
 	fn deploy(&self) {
     let hk = &self.conf;
 
-		println!("[{}][{}] Processing.", to_string(time::now()), self.name);
+		self.log("Processing.");
 
     let parms = &hk.parms;
     let mut child = match Command::new(&hk.cmd)
@@ -127,17 +127,17 @@ impl Deployer {
     match status {
       Ok(estatus) => {
         if estatus.success() {
-          println!("[{}][{}] Deploy completed successfully", to_string(time::now()), self.name);
+          self.log("Deploy completed successfully");
           self.message(format!(":sunny: {} deployed successfully !", self.name));
         } else {
           match estatus.code() {
             Some(exit_code) => {
-              println!("[{}][{}] Deploy failed with status {}.", to_string(time::now()), self.name, exit_code);
+              self.log(format!("Deploy failed with status {}.", exit_code).as_slice());
               self.message(format!(":umbrella: {} deployed failed.", self.name));
             },
             None => match estatus.signal() {
-              Some(signal_value) => println!("[{}][{}] Deploy was interrupted with signal {}.", to_string(time::now()), self.name, signal_value),
-              None => println!("[{}][{}] This should never happend.", to_string(time::now()), self.name),
+              Some(signal_value) => self.log(format!("Deploy was interrupted with signal {}.", signal_value).as_slice()),
+              None => self.log("This should never happen."),
             }
           }
           for line in stdout {
@@ -151,6 +151,15 @@ impl Deployer {
       Err(e) => println!("An error occured: {:?}",e),
     }
 	}
+
+  fn log(&self, info: &str) {
+    println!("[{}][{}][system] {}", to_string(time::now()), self.log_name(), info);
+  }
+
+  fn log_name(&self) -> String {
+    format!("deployer-{}", self.name)
+  }
+
   fn message(&self, message: String) {
     // http://www.emoji-cheat-sheet.com/
     let slack = Slack::new(self.slack_url.as_slice());
@@ -167,7 +176,7 @@ impl Deployer {
 
     let res = slack.send(&p);
     match res {
-        Ok(()) => println!("ok"),
+        Ok(()) => {},
         Err(x) => println!("ERR: {:?}",x)
     }
   }
