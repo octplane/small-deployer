@@ -7,5 +7,11 @@
 			"pwd": "."
 		}
 	}],
-	"slack": "https://hooks.slack.com/services/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"
+	"slack": {
+		"webhook_url": "https://hooks.slack.com/services/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",
+		"channel": "#deploys",
+		"username": "Deployr",
+		"icon_url": ,
+		"icon_emoji": ":computer:",
+	}
 }

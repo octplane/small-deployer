@@ -17,10 +17,11 @@ impl Dispatcher {
     let mut to_workers: HashMap<String, Sender<DeployMessage>> = HashMap::new();
     let mut workers: HashMap<String, Deployer> = HashMap::new();
     for conf in &self.config.hooks {
+
       let worker = Deployer{
         name: conf.name.clone(),
         conf: conf.action.clone(),
-        slack_url: (&self).config.slack.clone(),
+        slack: (&self).config.slack.clone(),
       };
       workers.insert(conf.name.clone(), worker);
     }

@@ -10,7 +10,7 @@ use std::thread;
 use time;
 
 use slackhook::{Slack, Payload, PayloadTemplate};
-use hook_configuration::{HookConfig, HookAction};
+use hook_configuration::{HookConfig, HookAction, SlackConfiguration};
 use tools::to_string;
 
 #[derive(Debug)]
@@ -43,7 +43,7 @@ pub enum DeployMessage {
 pub struct Deployer {
   pub name: String,
   pub conf: HookAction,
-  pub slack_url: String,
+  pub slack: Option<SlackConfiguration>,
 }
 
 impl Deployer {
@@ -161,23 +161,35 @@ impl Deployer {
   }
 
   fn message(&self, message: String) {
-    // http://www.emoji-cheat-sheet.com/
-    let slack = Slack::new(self.slack_url.as_slice());
-    let p = Payload::new(PayloadTemplate::Complete {
-      text: Some(message.as_slice()),
-      channel: Some("#deploys"),
-      username: Some("Deployr"),
-      icon_url: None,
-      icon_emoji: Some(":computer:"),
-      attachments: None,
-      unfurl_links: Some(true),
-      link_names: Some(false)
-    });
+    match self.slack {
+      Some(ref conf) => {
+        // http://www.emoji-cheat-sheet.com/
+        let slack = Slack::new(conf.webhook_url.as_slice());
+        let p = Payload::new(PayloadTemplate::Complete {
+          text: Some(message.as_slice()),
+          channel: Some(conf.channel.as_slice()),
+          username: Some(conf.username.as_slice()),
+          icon_url: match conf.icon_url {
+            None => None,
+            Some(ref s) => Some(s.as_slice()),
+          },
+          icon_emoji: match conf.icon_emoji {
+            None => None,
+            Some(ref s) => Some(s.as_slice()),
+          },
+          attachments: None,
+          unfurl_links: Some(true),
+          link_names: Some(false)
+        });
 
-    let res = slack.send(&p);
-    match res {
-        Ok(()) => {},
-        Err(x) => println!("ERR: {:?}",x)
+        let res = slack.send(&p);
+        match res {
+            Ok(()) => { self.log("Sent notification to slack.")},
+            Err(x) => println!("ERR: {:?}",x)
+        }
+      },
+      None => {}
     }
+
   }
 }
