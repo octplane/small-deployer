@@ -1,12 +1,14 @@
 README
 
-This is a git webhook client in rust.
+This is a git webhook client in rust. It can be used to deploy your application automatically or anything you'd like to run after a commit.
 
-- configure /hook/ as the git hook endpoint
-- send commit.
-- the application will try to find a project whose name is matching the commit passed in config.json
-- it will run the command specified in action and write the stdout and stderr logs in its logs.
--
+FEATURES
+
+- listens on /hook/ port 5000 for http requests
+- matches project name against configured project in config.json
+- runs the corresponding command and arguments as configured in config.json
+- dumps the result of this run in console, including stderr, stdout
+- can send the result of the the run on slack
 
 RUN
 
@@ -20,4 +22,7 @@ curl -X POST -d @sample.json http://127.0.0.1:5000/hook/
 
 TODO
 
-Use external application to journalize the logs
+- allow at most one deploy per application at the same time
+- support branch commits to deploy the same application with several branches
+- Use external application to journalize the logs
+

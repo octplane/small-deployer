@@ -53,6 +53,7 @@ impl Deployer {
     self.log("Starting deployer.");
     while{
       match rx.recv() {
+        // FIXME try_recv to exhaust the deploy queue
         Ok(DeployMessage::Deploy(_)) => { self.deploy(); true },
         Ok(DeployMessage::Exit) => false,
         Err(e) => { println!("Error: {}", e); false }
@@ -150,11 +151,15 @@ impl Deployer {
               None => self.log("This should never happen."),
             }
           }
+          self.log("Content of stdout:");
           for line in stdout {
             println!("{}", line);
           }
+          self.log("Content of stderr:");
           for line in stderr {
             println!("{}", line);
+          self.log("End of trace.");
+
           }
         }
       },
