@@ -2,8 +2,8 @@
 	"hooks": [{
 		"name": "Diaspora",
 		"action": {
-			"cmd": "ls",
-			"parms": ["pipo"],
+			"cmd": "find",
+			"parms": ["."],
 			"pwd": "."
 		}
 	}],

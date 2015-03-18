@@ -7,6 +7,8 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc::{Receiver, channel};
 use std::thread;
 
+use std::ops::Sub;
+
 use time;
 
 use slackhook::{Slack, Payload, PayloadTemplate};
@@ -65,6 +67,8 @@ impl Deployer {
 		self.log("Processing.");
 
     let parms = &hk.parms;
+
+    let start_time = time::now();
     let mut child = match Command::new(&hk.cmd)
       .args(parms.as_slice())
       .current_dir(&hk.pwd)
@@ -111,6 +115,9 @@ impl Deployer {
     let stderr = read_timestamped_lines(child.stderr.take(), self.name.as_slice(), LogSource::StdErr);
 
     let status = child.wait();
+    let end_time = time::now();
+
+    let duration = end_time.sub(start_time);
 
     let stdout = match stdout.recv() {
       Ok(Ok(s)) => s,
@@ -127,8 +134,11 @@ impl Deployer {
     match status {
       Ok(estatus) => {
         if estatus.success() {
-          self.log("Deploy completed successfully");
-          self.message(format!(":sunny: {} deployed successfully !", self.name));
+          // self.log("Deploy completed successfully");
+          // let lines = stdout.into_iter().map(|log_lines| log_lines.to_string());
+          // let so = lines.collect::<Vec<String>>();
+
+          self.message(format!(":sunny: {} deployed successfully in {}s.", self.name, duration.num_seconds()));
         } else {
           match estatus.code() {
             Some(exit_code) => {
@@ -182,9 +192,8 @@ impl Deployer {
           link_names: Some(false)
         });
 
-        let res = slack.send(&p);
-        match res {
-            Ok(()) => { self.log("Sent notification to slack.")},
+        match slack.send(&p) {
+            Ok(()) => self.log("Sent notification to slack."),
             Err(x) => println!("ERR: {:?}",x)
         }
       },
