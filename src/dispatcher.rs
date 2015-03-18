@@ -39,8 +39,12 @@ impl Dispatcher {
       while let Ok(data) = rx.recv() {
         match data {
           DeployMessage::Deploy(hk) => {
-            println!("Want to deploy {}", hk.name);
-            to_workers.get(&hk.name).unwrap().send(DeployMessage::Deploy(hk));
+            let name = hk.name.clone();
+            println!("[{}] Want to deploy {}.", to_string(time::now()),  name);
+            match to_workers.get(&name).unwrap().send(DeployMessage::Deploy(hk)) {
+              Err(e) => println!("[{}] Send to deployer {} failed: {}.", to_string(time::now()), name, e.to_string() ),
+              _ => {}
+            }
           },
           DeployMessage::Exit => println!("We should exit"),
         }

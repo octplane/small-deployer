@@ -50,7 +50,7 @@ impl Deployer {
     println!("[{}][{}] Starting deployer.", to_string(time::now()), self.name);
     while{
       match rx.recv() {
-        Ok(DeployMessage::Deploy(hk)) => { self.deploy(); true },
+        Ok(DeployMessage::Deploy(_)) => { self.deploy(); true },
         Ok(DeployMessage::Exit) => false,
         Err(e) => { println!("Error: {}", e); false }
       }
@@ -85,8 +85,11 @@ impl Deployer {
             let mut lines: Vec<TimestampedLine> = Vec::new();
             while {
               let mut line = String::new();
-              let read_status = br.read_line(&mut line);
-              let ok = line != "";
+              let ok = match br.read_line(&mut line) {
+                Ok(0) => false,
+                Ok(_) => true,
+                Err(e) => {println!("Something went wrong while reading the data: {}", e.to_string()); false}
+              };
               if ok {
                 let now = time::now();
                 lines.push(TimestampedLine{source: source.clone(), time: now, content: line});
