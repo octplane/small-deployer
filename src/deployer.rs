@@ -4,7 +4,7 @@ use std::io::BufReader;
 use std::fmt;
 use std::io::{self};
 use std::process::{Command, Stdio};
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::mpsc::{TryRecvError, Receiver, channel};
 use std::thread;
 
 use std::ops::Sub;
@@ -52,9 +52,23 @@ impl Deployer {
   pub fn run(&self, rx: Receiver<DeployMessage>) {
     self.log("Starting deployer.");
     while{
-      match rx.recv() {
+      let deploy_instruction = rx.recv();
+      match deploy_instruction {
         // FIXME try_recv to exhaust the deploy queue
-        Ok(DeployMessage::Deploy(_)) => { self.deploy(); true },
+        Ok(DeployMessage::Deploy(_)) => {
+          let mut extra_deploy_instruction;
+          while {
+            extra_deploy_instruction = rx.try_recv();
+            match extra_deploy_instruction {
+              Ok(DeployMessage::Deploy(_)) => true,
+              Ok(DeployMessage::Exit) => false,
+              Err(TryRecvError::Empty) => false,
+              Err(TryRecvError::Disconnected) => false
+            }
+          } {}
+
+          self.deploy(); true
+        },
         Ok(DeployMessage::Exit) => false,
         Err(e) => { println!("Error: {}", e); false }
       }
@@ -138,8 +152,9 @@ impl Deployer {
           // self.log("Deploy completed successfully");
           // let lines = stdout.into_iter().map(|log_lines| log_lines.to_string());
           // let so = lines.collect::<Vec<String>>();
-
-          self.message(format!(":sunny: {} deployed successfully in {}s.", self.name, duration.num_seconds()));
+          let log_message = format!(":sunny: {} deployed successfully in {}s.", self.name, duration.num_seconds());
+          self.log(log_message.as_slice());
+          self.message(log_message);
         } else {
           match estatus.code() {
             Some(exit_code) => {

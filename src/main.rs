@@ -70,7 +70,10 @@ impl Handler for Daemon {
 								None => println!("No hook for {}", repo_name),
 							}
 						},
-						Err(e) => println!("Error while parsing data: {:?}",  e),
+						Err(e) => {
+              println!("Error while parsing http: {:?}",  e);
+              println!("{}", s);
+            }
 					}
 				},
 				_ => {}
@@ -100,7 +103,12 @@ pub fn main() {
 	};
 
 	let config: HookConfiguration = match decode(json_config.as_slice()) {
-		Err(err) => panic!("{}", err),
+		Err(err) => {
+      println!("Error while parsing config file:");
+      println!("{}", err);
+      println!("{}", json_config);
+      panic!("Sorry.");
+    },
 		Ok(content) => content,
 	};
 
