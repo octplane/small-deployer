@@ -11,6 +11,13 @@ FEATURES
 - can send the result of the the run on slack
 - allow at most one deploy per application at the same time: if there are two commits arriving at the same time, the second one will be put on hold until the first deploy has completed. Also, if two commits arrive during a deploy, the deployer will only deploy one more time, not twice.
 
+BUILD INSIDE DOCKER
+
+docker run --rm -it -v $(pwd):/source schickling/rust
+
+apt-get update
+apt-get install libcurl4-gnutls-dev
+cargo build
 
 RUN
 

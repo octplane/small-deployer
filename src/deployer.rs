@@ -79,7 +79,7 @@ impl Deployer {
 	fn deploy(&self) {
     let hk = &self.conf;
 
-		self.log("Processing.");
+		self.message(format!("Starting Deploy for {}.", self.name));
 
     let parms = &hk.parms;
 

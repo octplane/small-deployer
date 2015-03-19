@@ -1,5 +1,5 @@
 [root]
-name = "webhook-client-rust"
+name = "small-deployer"
 version = "0.0.1"
 dependencies = [
  "hyper 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",

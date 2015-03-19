@@ -10,7 +10,6 @@ keywords = ["deploy", "github", "gitlab", "hook", "slack"]
 readme = "README"
 
 license= "MIT"
-license-file= "LICENSE"
 
 [dependencies]
 
