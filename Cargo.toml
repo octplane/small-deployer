@@ -6,7 +6,7 @@ name = "small-deployer"
 description = "A small git webhook server that can be used to trigger deploys. Send notification in slack."
 repository = "https://github.com/octplane/small-deployer"
 
-keywords = ["deploy", "deployer", "github", "gitlab", "hook", "http", "slack"]
+keywords = ["deploy", "github", "gitlab", "hook", "slack"]
 readme = "README"
 
 license= "MIT"
