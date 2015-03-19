@@ -9,6 +9,8 @@ FEATURES
 - runs the corresponding command and arguments as configured in config.json
 - dumps the result of this run in console, including stderr, stdout
 - can send the result of the the run on slack
+- allow at most one deploy per application at the same time: if there are two commits arriving at the same time, the second one will be put on hold until the first deploy has completed. Also, if two commits arrive during a deploy, the deployer will only deploy one more time, not twice.
+
 
 RUN
 
@@ -22,7 +24,5 @@ curl -X POST -d @sample.json http://127.0.0.1:5000/hook/
 
 TODO
 
-- allow at most one deploy per application at the same time
 - support branch commits to deploy the same application with several branches
 - Use external application to journalize the logs
-
