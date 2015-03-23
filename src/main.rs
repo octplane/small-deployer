@@ -1,5 +1,4 @@
 #![feature(core)]
-#![feature(net)]
 #![feature(std_misc)]
 
 extern crate hyper;
@@ -9,7 +8,7 @@ extern crate slackhook;
 
 use std::io::prelude::*;
 use std::fs::File;
-use std::net::IpAddr;
+use std::net::Ipv4Addr;
 use std::thread;
 
 use hyper::Server;
@@ -123,6 +122,6 @@ pub fn main() {
 	let port = 5000;
 
 	println!("Starting up, listening on port {}.", port);
-	Server::new(handler).listen(IpAddr::new_v4(127, 0, 0, 1), port).unwrap();
+	Server::new(handler).listen((Ipv4Addr::new(127, 0, 0, 1), port)).unwrap();
 
 }
