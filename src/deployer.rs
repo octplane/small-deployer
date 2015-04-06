@@ -76,10 +76,10 @@ impl Deployer {
     self.log("Stopping deployer.");
   }
 
-	fn deploy(&self) {
+  fn deploy(&self) {
     let hk = &self.conf;
 
-		self.message(format!("Starting Deploy for {}.", self.name));
+    self.message(format!("Starting Deploy for {}.", self.name));
 
     let parms = &hk.parms;
 
@@ -180,7 +180,7 @@ impl Deployer {
       },
       Err(e) => println!("An error occured: {:?}",e),
     }
-	}
+  }
 
   fn log(&self, info: &str) {
     println!("[{}][{}][system] {}", to_string(time::now()), self.log_name(), info);

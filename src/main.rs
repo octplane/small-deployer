@@ -42,8 +42,8 @@ pub struct GitHook  {
 
 #[derive(RustcDecodable)]
 pub struct Repository {
-	name: String,
-	// url: String,
+  name: String,
+  // url: String,
 }
 
 pub struct Daemon {
@@ -52,64 +52,64 @@ pub struct Daemon {
 }
 
 impl Handler for Daemon {
-	fn handle(&self, req: Request, res: Response<Fresh>) {
+  fn handle(&self, req: Request, res: Response<Fresh>) {
 
-		let mut s = String::new();
-		let mut myreq = req;
-		if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
-			match myreq.read_to_string(&mut s) {
-				Ok(_) => {
-					match decode::<GitHook>(s.as_slice()) {
-						Ok(decoded ) => {
-							let repo_name = decoded.repository.name;
-							match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
-								Some(hk) => {
+    let mut s = String::new();
+    let mut myreq = req;
+    if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
+      match myreq.read_to_string(&mut s) {
+        Ok(_) => {
+          match decode::<GitHook>(s.as_slice()) {
+            Ok(decoded ) => {
+              let repo_name = decoded.repository.name;
+              match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
+                Some(hk) => {
                   let _ = self.intercom.lock().unwrap().send(DeployMessage::Deploy(hk.clone()));
                 },
-								None => println!("No hook for {}", repo_name),
-							}
-						},
-						Err(e) => {
+                None => println!("No hook for {}", repo_name),
+              }
+            },
+            Err(e) => {
               println!("Error while parsing http: {:?}",  e);
               println!("{}", s);
             }
-					}
-				},
-				_ => {}
-			}
-		}
+          }
+        },
+        _ => {}
+      }
+    }
 
     let mut res = res.start().unwrap();
     res.write_all(b"OK.").unwrap();
     res.end().unwrap();
-	}
+  }
 }
 
 
 pub fn main() {
 
-	let mut json_config = String::new();
+  let mut json_config = String::new();
 
-	let config_location = &Path::new("config.json");
+  let config_location = &Path::new("config.json");
 
-	match File::open(config_location) {
-		Err(err) => panic!("Error during config file read: {:?}. {}",
-			config_location, err.to_string()),
-		Ok(icf) => {
-			let mut config_file = icf;
-			config_file.read_to_string(&mut json_config).ok().unwrap()
-		},
-	};
+  match File::open(config_location) {
+    Err(err) => panic!("Error during config file read: {:?}. {}",
+      config_location, err.to_string()),
+    Ok(icf) => {
+      let mut config_file = icf;
+      config_file.read_to_string(&mut json_config).ok().unwrap()
+    },
+  };
 
-	let config: HookConfiguration = match decode(json_config.as_slice()) {
-		Err(err) => {
+  let config: HookConfiguration = match decode(json_config.as_slice()) {
+    Err(err) => {
       println!("Error while parsing config file:");
       println!("{}", err);
       println!("{}", json_config);
       panic!("Sorry.");
     },
-		Ok(content) => content,
-	};
+    Ok(content) => content,
+  };
 
   let (tx, rx) = channel();
 
@@ -117,11 +117,11 @@ pub fn main() {
   thread::spawn(move || {
     dispatcher.run(rx);
   });
-	let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
+  let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
 
-	let port = 5000;
+  let port = 5000;
 
-	println!("Starting up, listening on port {}.", port);
-	Server::new(handler).listen((Ipv4Addr::new(127, 0, 0, 1), port)).unwrap();
+  println!("Starting up, listening on port {}.", port);
+  Server::new(handler).listen((Ipv4Addr::new(127, 0, 0, 1), port)).unwrap();
 
 }
