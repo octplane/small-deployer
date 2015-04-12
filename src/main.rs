@@ -1,15 +1,14 @@
-#![feature(core)]
-#![feature(std_misc)]
-
 extern crate hyper;
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate time;
-extern crate slackhook;
+extern crate slack_hook;
 
 use std::io::prelude::*;
 use std::fs::File;
 use std::net::Ipv4Addr;
 use std::thread;
+use std::convert::AsRef;
+
 
 use hyper::Server;
 use hyper::server::Request;
@@ -59,7 +58,7 @@ impl Handler for Daemon {
     if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
       match myreq.read_to_string(&mut s) {
         Ok(_) => {
-          match decode::<GitHook>(s.as_slice()) {
+          match decode::<GitHook>(s.as_ref()) {
             Ok(decoded ) => {
               let repo_name = decoded.repository.name;
               match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
@@ -101,7 +100,7 @@ pub fn main() {
     },
   };
 
-  let config: HookConfiguration = match decode(json_config.as_slice()) {
+  let config: HookConfiguration = match decode(json_config.as_ref()) {
     Err(err) => {
       println!("Error while parsing config file:");
       println!("{}", err);

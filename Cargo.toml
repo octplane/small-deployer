@@ -1,5 +1,5 @@
 [package]
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Pierre Baillet <pierre@baillet.name>"]
 
 name = "small-deployer"
@@ -15,5 +15,5 @@ license= "MIT"
 
 rustc-serialize = "*"
 time = "*"
-hyper = "0.3.0"
-slack-hook = "0.0.2"
+hyper = "*"
+slack-hook = "*"

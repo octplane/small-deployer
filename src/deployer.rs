@@ -6,12 +6,13 @@ use std::io::{self};
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{TryRecvError, Receiver, channel};
 use std::thread;
+use std::convert::AsRef;
 
 use std::ops::Sub;
 
 use time;
 
-use slackhook::{Slack, Payload, PayloadTemplate};
+use slack_hook::{Slack, Payload, PayloadTemplate};
 use hook_configuration::{HookConfig, HookAction, SlackConfiguration};
 use tools::to_string;
 
@@ -85,7 +86,7 @@ impl Deployer {
 
     let start_time = time::now();
     let mut child = match Command::new(&hk.cmd)
-      .args(parms.as_slice())
+      .args(parms.as_ref())
       .current_dir(&hk.pwd)
       .stdin(Stdio::null())
       .stdout(Stdio::piped())
@@ -126,8 +127,8 @@ impl Deployer {
       rx
     }
 
-    let stdout = read_timestamped_lines(child.stdout.take(), self.name.as_slice(), LogSource::StdOut);
-    let stderr = read_timestamped_lines(child.stderr.take(), self.name.as_slice(), LogSource::StdErr);
+    let stdout = read_timestamped_lines(child.stdout.take(), self.name.as_ref(), LogSource::StdOut);
+    let stderr = read_timestamped_lines(child.stderr.take(), self.name.as_ref(), LogSource::StdErr);
 
     let status = child.wait();
     let end_time = time::now();
@@ -153,16 +154,16 @@ impl Deployer {
           // let lines = stdout.into_iter().map(|log_lines| log_lines.to_string());
           // let so = lines.collect::<Vec<String>>();
           let log_message = format!(":sunny: {} deployed successfully in {}s.", self.name, duration.num_seconds());
-          self.log(log_message.as_slice());
+          self.log(log_message.as_ref());
           self.message(log_message);
         } else {
           match estatus.code() {
             Some(exit_code) => {
-              self.log(format!("Deploy failed with status {}.", exit_code).as_slice());
+              self.log(format!("Deploy failed with status {}.", exit_code).as_ref());
               self.message(format!(":umbrella: {} deployed failed.", self.name));
             },
             None => match estatus.signal() {
-              Some(signal_value) => self.log(format!("Deploy was interrupted with signal {}.", signal_value).as_slice()),
+              Some(signal_value) => self.log(format!("Deploy was interrupted with signal {}.", signal_value).as_ref()),
               None => self.log("This should never happen."),
             }
           }
@@ -194,18 +195,18 @@ impl Deployer {
     match self.slack {
       Some(ref conf) => {
         // http://www.emoji-cheat-sheet.com/
-        let slack = Slack::new(conf.webhook_url.as_slice());
+        let slack = Slack::new(conf.webhook_url.as_ref());
         let p = Payload::new(PayloadTemplate::Complete {
-          text: Some(message.as_slice()),
-          channel: Some(conf.channel.as_slice()),
-          username: Some(conf.username.as_slice()),
+          text: Some(message.as_ref()),
+          channel: Some(conf.channel.as_ref()),
+          username: Some(conf.username.as_ref()),
           icon_url: match conf.icon_url {
             None => None,
-            Some(ref s) => Some(s.as_slice()),
+            Some(ref s) => Some(s.as_ref()),
           },
           icon_emoji: match conf.icon_emoji {
             None => None,
-            Some(ref s) => Some(s.as_slice()),
+            Some(ref s) => Some(s.as_ref()),
           },
           attachments: None,
           unfurl_links: Some(true),

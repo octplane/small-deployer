@@ -3,6 +3,7 @@ use std::thread;
 
 use std::sync::mpsc::{Receiver, Sender, channel};
 use time;
+use std::convert::AsRef;
 
 use hook_configuration::HookConfiguration;
 use deployer::{DeployMessage, Deployer};
@@ -40,7 +41,7 @@ impl Dispatcher {
       match data {
         DeployMessage::Deploy(hk) => {
           let name = hk.name.clone();
-          self.log(format!("Want to deploy {}.", name).as_slice());
+          self.log(format!("Want to deploy {}.", name).as_ref());
           match to_workers.get(&name).unwrap().send(DeployMessage::Deploy(hk)) {
             Err(e) => println!("[{}][system] Send to deployer {} failed: {}.", to_string(time::now()), name, e.to_string() ),
             _ => {}
