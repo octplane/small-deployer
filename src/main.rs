@@ -74,10 +74,9 @@ impl Handler for Daemon {
               let branch = decoded.reference.branch();
 
               match self.config.hooks.iter().filter(|&binding|
-                if binding.name == repo_name {
-                  let match_branch = binding.branch.clone();
-                  match match_branch {
-                    Some(b) => b == branch,
+                if repo_name == binding.name {
+                  match binding.branch.clone() {
+                    Some(target_branch) => branch == target_branch,
                     None => true
                   }
                 } else {
