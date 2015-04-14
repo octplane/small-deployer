@@ -36,7 +36,7 @@ mod tools;
 pub struct GitHook  {
     // before: String,
     // after: String,
-    reference: String,
+    reference: Option<String>,
     repository: Repository,
 }
 
@@ -71,14 +71,15 @@ impl Handler for Daemon {
           match decode::<GitHook>(s.as_ref()) {
             Ok(decoded ) => {
               let repo_name = decoded.repository.name;
-              let branch = decoded.reference.branch();
+              // let branch = decoded.reference.branch();
 
               match self.config.hooks.iter().filter(|&binding|
                 if repo_name == binding.name {
-                  match binding.branch.clone() {
-                    Some(target_branch) => branch == target_branch,
-                    None => true
-                  }
+                  true
+                  // match binding.branch.clone() {
+                  //   Some(target_branch) => branch == target_branch,
+                  //   None => true
+                  // }
                 } else {
                   false
                 }
