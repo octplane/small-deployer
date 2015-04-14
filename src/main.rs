@@ -36,7 +36,17 @@ mod tools;
 pub struct GitHook  {
     // before: String,
     // after: String,
+    reference: String,
     repository: Repository,
+}
+
+trait RefsHeadToBranch {
+  fn branch(&self) -> &str;
+}
+impl RefsHeadToBranch for String {
+  fn branch(&self) -> &str {
+    self.trim_left_matches("/refs/head/")
+  }
 }
 
 #[derive(RustcDecodable)]
@@ -61,7 +71,19 @@ impl Handler for Daemon {
           match decode::<GitHook>(s.as_ref()) {
             Ok(decoded ) => {
               let repo_name = decoded.repository.name;
-              match self.config.hooks.iter().filter(|&binding| binding.name == repo_name).next() {
+              let branch = decoded.reference.branch();
+
+              match self.config.hooks.iter().filter(|&binding|
+                if binding.name == repo_name {
+                  let match_branch = binding.branch.clone();
+                  match match_branch {
+                    Some(b) => b == branch,
+                    None => true
+                  }
+                } else {
+                  false
+                }
+                ).next() {
                 Some(hk) => {
                   let _ = self.intercom.lock().unwrap().send(DeployMessage::Deploy(hk.clone()));
                 },

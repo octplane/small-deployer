@@ -19,6 +19,7 @@ pub struct SlackConfiguration {
 #[derive(Clone)]
 pub struct HookConfig {
   pub name: String,
+  pub branch: Option<String>,
   pub action: HookAction,
 }
 

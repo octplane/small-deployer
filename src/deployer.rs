@@ -55,7 +55,6 @@ impl Deployer {
     while{
       let deploy_instruction = rx.recv();
       match deploy_instruction {
-        // FIXME try_recv to exhaust the deploy queue
         Ok(DeployMessage::Deploy(_)) => {
           let mut extra_deploy_instruction;
           while {
