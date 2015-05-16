@@ -13,7 +13,8 @@ license= "MIT"
 
 [dependencies]
 
-rustc-serialize = "*"
+serde_macros = "*"
+serde = "*"
 time = "*"
 hyper = "*"
 slack-hook = "*"

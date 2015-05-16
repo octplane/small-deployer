@@ -1,11 +1,11 @@
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[derive(Clone)]
 pub struct HookConfiguration  {
   pub hooks: Vec<HookConfig>,
   pub slack: Option<SlackConfiguration>,
 }
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[derive(Clone)]
 pub struct SlackConfiguration {
   pub webhook_url: String,
@@ -15,7 +15,7 @@ pub struct SlackConfiguration {
   pub icon_emoji: Option<String>,
 }
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[derive(Clone)]
 pub struct HookConfig {
   pub name: String,
@@ -23,7 +23,7 @@ pub struct HookConfig {
   pub action: HookAction,
 }
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 #[derive(Clone)]
 pub struct HookAction  {
   pub cmd: String,

@@ -1,7 +1,12 @@
+#![feature(custom_attribute, custom_derive, plugin)]
+#![plugin(serde_macros)]
+
+
 extern crate hyper;
-extern crate rustc_serialize;
 extern crate time;
 extern crate slack_hook;
+extern crate serde;
+
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -16,8 +21,8 @@ use hyper::server::Response;
 use hyper::uri::RequestUri;
 use hyper::net::Fresh;
 use hyper::server::Handler;
-use rustc_serialize::json::decode;
 use std::path::Path;
+use serde::json;
 
 use std::sync::{Mutex, Arc};
 use std::sync::mpsc::{Sender, channel};
@@ -32,10 +37,11 @@ mod deployer;
 mod tools;
 
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 pub struct GitHook  {
     // before: String,
     // after: String,
+    #[serde(rename( json="ref"))]
     reference: Option<String>,
     repository: Repository,
 }
@@ -49,7 +55,7 @@ impl RefsHeadToBranch for String {
   }
 }
 
-#[derive(RustcDecodable)]
+#[derive(Deserialize)]
 pub struct Repository {
   name: String,
   // url: String,
@@ -68,10 +74,12 @@ impl Handler for Daemon {
     if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
       match myreq.read_to_string(&mut s) {
         Ok(_) => {
-          match decode::<GitHook>(s.as_ref()) {
+          let decode = json::from_str::<GitHook>(s.as_ref());
+          match decode {
             Ok(decoded ) => {
               let repo_name = decoded.repository.name;
-              // let branch = decoded.reference.branch();
+              let reference = decoded.reference.unwrap();
+              println!("ref: {}", reference);
 
               match self.config.hooks.iter().filter(|&binding|
                 if repo_name == binding.name {
@@ -122,7 +130,7 @@ pub fn main() {
     },
   };
 
-  let config: HookConfiguration = match decode(json_config.as_ref()) {
+  let config: HookConfiguration = match json::from_str(json_config.as_ref()) {
     Err(err) => {
       println!("Error while parsing config file:");
       println!("{}", err);
