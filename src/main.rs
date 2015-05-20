@@ -23,6 +23,7 @@ use hyper::net::Fresh;
 use hyper::server::Handler;
 use std::path::Path;
 use serde::json;
+use serde::json::Value;
 
 use std::sync::{Mutex, Arc};
 use std::sync::mpsc::{Sender, channel};
@@ -39,26 +40,20 @@ mod tools;
 
 #[derive(Deserialize)]
 pub struct GitHook  {
-    // before: String,
-    // after: String,
-    #[serde(rename( json="ref"))]
-    reference: Option<String>,
-    repository: Repository,
+  content: Value
 }
 
-trait RefsHeadToBranch {
-  fn branch(&self) -> &str;
-}
-impl RefsHeadToBranch for String {
-  fn branch(&self) -> &str {
-    self.trim_left_matches("/refs/head/")
+impl GitHook {
+  fn repository_name(&self) -> &str {
+    let path = ["repository", "name"];
+    self.content.find_path(&path).unwrap().as_string().unwrap()
   }
-}
-
-#[derive(Deserialize)]
-pub struct Repository {
-  name: String,
-  // url: String,
+  fn reference(&self) -> &str {
+    self.content.find("ref").unwrap().as_string().unwrap()
+  }
+  fn branch(&self) -> &str {
+    self.reference().trim_left_matches("refs/heads/")
+  }
 }
 
 pub struct Daemon {
@@ -74,20 +69,21 @@ impl Handler for Daemon {
     if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
       match myreq.read_to_string(&mut s) {
         Ok(_) => {
-          let decode = json::from_str::<GitHook>(s.as_ref());
+          let decode = json::from_str::<Value>(s.as_ref());
+
           match decode {
             Ok(decoded ) => {
-              let repo_name = decoded.repository.name;
-              let reference = decoded.reference.unwrap();
-              println!("ref: {}", reference);
+              let gh = GitHook{content: decoded};
+
+              let repo_name = gh.repository_name();
+              let branch = gh.branch();
 
               match self.config.hooks.iter().filter(|&binding|
                 if repo_name == binding.name {
-                  true
-                  // match binding.branch.clone() {
-                  //   Some(target_branch) => branch == target_branch,
-                  //   None => true
-                  // }
+                  match binding.branch.clone() {
+                    Some(target_branch) => branch == target_branch,
+                    None => true
+                  }
                 } else {
                   false
                 }
@@ -95,7 +91,7 @@ impl Handler for Daemon {
                 Some(hk) => {
                   let _ = self.intercom.lock().unwrap().send(DeployMessage::Deploy(hk.clone()));
                 },
-                None => println!("No hook for {}", repo_name),
+                None => println!("No hook for {}/{}", repo_name, branch),
               }
             },
             Err(e) => {
