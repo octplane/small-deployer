@@ -1,3 +1,4 @@
+
 #[derive(Deserialize)]
 #[derive(Clone)]
 pub struct HookConfiguration  {

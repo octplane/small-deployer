@@ -13,8 +13,9 @@ license= "MIT"
 
 [dependencies]
 
+serde="*"
+serde_json = "*"
 serde_macros = "*"
-serde = "*"
 time = "*"
 hyper = "*"
 slack-hook = "*"

@@ -6,11 +6,11 @@ extern crate hyper;
 extern crate time;
 extern crate slack_hook;
 extern crate serde;
+extern crate serde_json;
 
 
 use std::io::prelude::*;
 use std::fs::File;
-use std::net::Ipv4Addr;
 use std::thread;
 use std::convert::AsRef;
 
@@ -22,8 +22,7 @@ use hyper::uri::RequestUri;
 use hyper::net::Fresh;
 use hyper::server::Handler;
 use std::path::Path;
-use serde::json;
-use serde::json::Value;
+use serde_json::Value;
 
 use std::sync::{Mutex, Arc};
 use std::sync::mpsc::{Sender, channel};
@@ -37,8 +36,6 @@ mod dispatcher;
 mod deployer;
 mod tools;
 
-
-#[derive(Deserialize)]
 pub struct GitHook  {
   content: Value
 }
@@ -69,7 +66,8 @@ impl Handler for Daemon {
     if myreq.uri == RequestUri::AbsolutePath("/hook/".to_string()) {
       match myreq.read_to_string(&mut s) {
         Ok(_) => {
-          let decode = json::from_str::<Value>(s.as_ref());
+          println!("Got payload {}", s);
+          let decode = serde_json::from_str::<Value>(s.as_ref());
 
           match decode {
             Ok(decoded ) => {
@@ -126,7 +124,7 @@ pub fn main() {
     },
   };
 
-  let config: HookConfiguration = match json::from_str(json_config.as_ref()) {
+  let config: HookConfiguration = match serde_json::from_str(json_config.as_ref()) {
     Err(err) => {
       println!("Error while parsing config file:");
       println!("{}", err);
@@ -145,8 +143,7 @@ pub fn main() {
   let handler = Daemon{config: config, intercom: Arc::new(Mutex::new(tx)) };
 
   let port = 5000;
-
   println!("Starting up, listening on port {}.", port);
-  Server::new(handler).listen((Ipv4Addr::new(127, 0, 0, 1), port)).unwrap();
+  let _ = Server::http(("127.0.0.1", port)).unwrap().handle(handler);
 
 }
