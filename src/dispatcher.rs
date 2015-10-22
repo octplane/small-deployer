@@ -24,7 +24,7 @@ impl Dispatcher {
         conf: conf.action.clone(),
         slack: (&self).config.slack.clone(),
       };
-      workers.insert(conf.name.clone(), worker);
+      workers.insert(conf.worker_name(), worker);
     }
 
     for (name, worker) in workers.into_iter() {
