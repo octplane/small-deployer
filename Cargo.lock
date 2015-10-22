@@ -1,6 +1,6 @@
 [root]
 name = "small-deployer"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "hyper 0.6.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",

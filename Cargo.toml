@@ -13,9 +13,9 @@ license= "MIT"
 
 [dependencies]
 
-serde="*"
-serde_json = "*"
-serde_macros = "*"
-time = "*"
-hyper = "*"
-slack-hook = "*"
+hyper = "~0.6.15"
+serde="~0.6.1"
+serde_json = "~0.6.0"
+serde_macros = "~0.6.1"
+slack-hook = "~0.1.2"
+time = "~0.1.33"
