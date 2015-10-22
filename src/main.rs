@@ -75,15 +75,11 @@ impl Handler for Daemon {
 
               let repo_name = gh.repository_name();
               let branch = gh.branch();
-              println!("Working on branch {} for {}", branch, repo_name);
 
               match self.config.hooks.iter().filter(|&binding|
                 if repo_name == binding.name {
                   match binding.branch.clone() {
-                    Some(target_branch) => {
-                      println!("We have a target_branch {} and current branch is {}.", target_branch, branch);
-                      branch == target_branch
-                    }
+                    Some(target_branch) => branch == target_branch,
                     None => true
                   }
                 } else {
