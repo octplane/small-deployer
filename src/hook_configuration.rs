@@ -24,6 +24,13 @@ pub struct HookConfig {
   pub action: HookAction,
 }
 
+impl HookConfig {
+  pub fn worker_name(&self) -> String {
+    let b = self.branch.clone().unwrap_or("all".to_string());
+    format!("{}-{}", self.name, b)
+  }
+}
+
 #[derive(Deserialize)]
 #[derive(Clone)]
 pub struct HookAction  {

@@ -20,7 +20,7 @@ impl Dispatcher {
     for conf in &self.config.hooks {
 
       let worker = Deployer{
-        name: conf.name.clone(),
+        name: conf.worker_name(),
         conf: conf.action.clone(),
         slack: (&self).config.slack.clone(),
       };
@@ -40,10 +40,10 @@ impl Dispatcher {
     while let Ok(data) = rx.recv() {
       match data {
         DeployMessage::Deploy(hk) => {
-          let name = hk.name.clone();
-          self.log(format!("Want to deploy {}.", name).as_ref());
-          match to_workers.get(&name).unwrap().send(DeployMessage::Deploy(hk)) {
-            Err(e) => println!("[{}][system] Send to deployer {} failed: {}.", to_string(time::now()), name, e.to_string() ),
+          let wname = hk.worker_name();
+          self.log(format!("Want to deploy {}.", wname).as_ref());
+          match to_workers.get(&wname).unwrap().send(DeployMessage::Deploy(hk)) {
+            Err(e) => println!("[{}][system] Send to deployer {} failed: {}.", to_string(time::now()), wname, e.to_string() ),
             _ => {}
           }
         },

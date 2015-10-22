@@ -13,10 +13,9 @@ FEATURES
 
 BUILD INSIDE DOCKER
 
-docker run --rm -it -v $(pwd):/source schickling/rust
+docker run --rm -it -v $(pwd):/source octplane/rust 
 
-apt-get update
-apt-get install libcurl4-gnutls-dev
+apt-get update && apt-get install -y libcurl4-gnutls-dev
 cargo build
 
 RUN
