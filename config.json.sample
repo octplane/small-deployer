@@ -1,6 +1,7 @@
 {
 	"hooks": [{
 		"name": "Diaspora",
+		"branch": "dev",
 		"action": {
 			"cmd": "ls",
 			"parms": ["pipo"],
@@ -11,7 +12,7 @@
 		"webhook_url": "https://hooks.slack.com/services/T040LJ90Y/B04U5X/ZdcHYgx7XSsMBza5IG0kdcHYgFYPl",
 		"channel": "#deploys",
 		"username": "Deployr",
-		"icon_url": ,
-		"icon_emoji": ":computer:",
+		"icon_url": "",
+		"icon_emoji": ":computer:"
 	}
 }
