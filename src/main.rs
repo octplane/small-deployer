@@ -1,19 +1,14 @@
 #![feature(custom_attribute, custom_derive, plugin)]
-#![plugin(serde_macros)]
-
 
 extern crate hyper;
 extern crate time;
 extern crate slack_hook;
-extern crate serde;
-extern crate serde_json;
-
+extern crate rustc_serialize;
 
 use std::io::prelude::*;
 use std::fs::File;
 use std::thread;
 use std::convert::AsRef;
-
 
 use hyper::Server;
 use hyper::server::Request;
@@ -22,10 +17,12 @@ use hyper::uri::RequestUri;
 use hyper::net::Fresh;
 use hyper::server::Handler;
 use std::path::Path;
-use serde_json::Value;
 
 use std::sync::{Mutex, Arc};
 use std::sync::mpsc::{Sender, channel};
+
+use rustc_serialize::json::Json;
+use rustc_serialize::json;
 
 use dispatcher::Dispatcher;
 use hook_configuration::HookConfiguration;
@@ -37,7 +34,7 @@ mod deployer;
 mod tools;
 
 pub struct GitHook  {
-  content: Value
+  content: Json
 }
 
 impl GitHook {
@@ -67,7 +64,7 @@ impl Handler for Daemon {
       match myreq.read_to_string(&mut s) {
         Ok(_) => {
           println!("Got payload {}", s);
-          let decode = serde_json::from_str::<Value>(s.as_ref());
+          let decode = Json::from_str(s.as_ref());
 
           match decode {
             Ok(decoded ) => {
@@ -124,7 +121,7 @@ pub fn main() {
     },
   };
 
-  let config: HookConfiguration = match serde_json::from_str(json_config.as_ref()) {
+  let config: HookConfiguration = match json::decode(json_config.as_ref()) {
     Err(err) => {
       println!("Error while parsing config file:");
       println!("{}", err);

@@ -13,9 +13,7 @@ license= "MIT"
 
 [dependencies]
 
+rustc-serialize = "0.3"
 hyper = "~0.6.15"
-serde="~0.6.1"
-serde_json = "~0.6.0"
-serde_macros = "~0.6.1"
 slack-hook = "~0.1.2"
 time = "~0.1.33"

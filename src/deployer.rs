@@ -38,6 +38,7 @@ impl fmt::Display for TimestampedLine {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum DeployMessage {
   Deploy(HookConfig),
   Exit
