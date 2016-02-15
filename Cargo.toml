@@ -12,8 +12,9 @@ readme = "README"
 license= "MIT"
 
 [dependencies]
-
 rustc-serialize = "0.3"
-hyper = "~0.6.15"
-slack-hook = "~0.1.2"
+hyper = "~0.7.2"
 time = "~0.1.33"
+
+slack-hook = {path = "../rust-slack/"}
+small-logger = {path = "../small-logger/"}

@@ -1,12 +1,7 @@
-use std::io::prelude::*;
 use std::os::unix::prelude::*;
-use std::io::BufReader;
-use std::fmt;
-use std::io::{self};
-use std::process::{Command, Stdio};
-use std::sync::mpsc::{TryRecvError, Receiver, channel};
-use std::thread;
+use std::sync::mpsc::{TryRecvError, Receiver};
 use std::convert::AsRef;
+use small_logger::runner;
 
 use std::ops::Sub;
 
@@ -15,27 +10,6 @@ use time;
 use slack_hook::{Slack, Payload, PayloadTemplate};
 use hook_configuration::{HookConfig, HookAction, SlackConfiguration};
 use tools::to_string;
-
-#[derive(Debug)]
-#[derive(Clone)]
-enum LogSource {
-  StdOut,
-  StdErr,
-}
-
-#[derive(Debug)]
-pub struct TimestampedLine {
-  source: LogSource,
-  name: String,
-  time: time::Tm,
-  content: String,
-}
-
-impl fmt::Display for TimestampedLine {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_fmt(format_args!("[{}][{}][{:?}] {}", to_string(self.time), self.name, self.source, self.content))
-    }
-}
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -78,74 +52,16 @@ impl Deployer {
   }
 
   fn deploy(&self) {
-    let hk = &self.conf;
+    let hk = self.conf.clone();
 
     self.message(format!("Starting Deploy for {}.", self.name));
+    let r = runner::Runner;
 
-    let parms = &hk.parms;
-
+    // FIXME: modify small-logger to get duration from inner runner.
     let start_time = time::now();
-    let mut child = match Command::new(&hk.cmd)
-      .args(parms.as_ref())
-      .current_dir(&hk.pwd)
-      .stdin(Stdio::null())
-      .stdout(Stdio::piped())
-      .stderr(Stdio::piped())
-      .spawn() {
-        Err(why) => panic!("couldn't spawn {}: {}", &hk.cmd, why.to_string()),
-        Ok(child) => child,
-    };
-
-    //https://github.com/rust-lang/rust/blob/b83b26bacb6371173cdec6bf68c7ffa69f858c84/src/libstd/process.rs
-    fn read_timestamped_lines<T: Read + Send + 'static>(stream: Option<T>, name: &str, source: LogSource) -> Receiver<io::Result<Vec<TimestampedLine>>> {
-      let (tx, rx) = channel();
-      let sname = name.to_string();
-      match stream {
-        Some(stream) => {
-          thread::spawn(move || {
-            let mut br = BufReader::with_capacity(64, stream);
-            let mut lines: Vec<TimestampedLine> = Vec::new();
-            while {
-              let mut line = String::new();
-              let ok = match br.read_line(&mut line) {
-                Ok(0) => false,
-                Ok(_) => true,
-                Err(e) => {println!("Something went wrong while reading the data: {}", e.to_string()); false}
-              };
-              if ok {
-                let now = time::now();
-                lines.push(TimestampedLine{source: source.clone(), name: sname.clone(), time: now, content: line});
-              }
-              ok
-            } {}
-
-            tx.send(Ok(lines)).unwrap();
-          });
-        }
-        None => tx.send(Ok(Vec::<TimestampedLine>::new())).unwrap()
-      }
-      rx
-    }
-
-    let stdout = read_timestamped_lines(child.stdout.take(), self.name.as_ref(), LogSource::StdOut);
-    let stderr = read_timestamped_lines(child.stderr.take(), self.name.as_ref(), LogSource::StdErr);
-
-    let status = child.wait();
+    let status = r.run(&hk.cmd, hk.parms, Some(hk.pwd));
     let end_time = time::now();
-
     let duration = end_time.sub(start_time);
-
-    let stdout = match stdout.recv() {
-      Ok(Ok(s)) => s,
-      Ok(Err(e)) => panic!("Stdout IOError {}", e),
-      Err(e) => panic!("Stdout RecvError {}", e),
-    };
-
-    let stderr = match stderr.recv() {
-      Ok(Ok(s)) => s,
-      Ok(Err(e)) => panic!("Stderr IOError {}", e),
-      Err(e) => panic!("Stderr RecvError {}", e),
-    };
 
     match status {
       Ok(estatus) => {
@@ -166,16 +82,6 @@ impl Deployer {
               Some(signal_value) => self.log(format!("Deploy was interrupted with signal {}.", signal_value).as_ref()),
               None => self.log("This should never happen."),
             }
-          }
-          self.log("Content of stdout:");
-          for line in stdout {
-            println!("{}", line);
-          }
-          self.log("Content of stderr:");
-          for line in stderr {
-            println!("{}", line);
-          self.log("End of trace.");
-
           }
         }
       },

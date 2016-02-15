@@ -4,6 +4,7 @@ extern crate hyper;
 extern crate time;
 extern crate slack_hook;
 extern crate rustc_serialize;
+extern crate small_logger;
 
 use std::io::prelude::*;
 use std::fs::File;
