@@ -1,5 +1,5 @@
 [package]
-version = "0.0.4"
+version = "0.1.0"
 authors = ["Pierre Baillet <pierre@baillet.name>"]
 
 name = "small-deployer"
@@ -16,5 +16,5 @@ rustc-serialize = "0.3"
 hyper = "~0.7.2"
 time = "~0.1.33"
 
-slack-hook = {path = "../rust-slack/"}
-small-logger = {path = "../small-logger/"}
+slack-hook = "0.1.2"
+small-logger = "0.1.2" # {path = "../small-logger/"}
