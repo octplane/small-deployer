@@ -59,16 +59,13 @@ impl Deployer {
 
     // FIXME: modify small-logger to get duration from inner runner.
     let start_time = time::now();
-    let status = r.run(&hk.cmd, hk.parms, Some(hk.pwd));
+    let status = r.run(&hk.cmd, hk.parms, "./logs".into() , format!("deployer_{}", self.name), Some(hk.pwd));
     let end_time = time::now();
     let duration = end_time.sub(start_time);
 
     match status {
       Ok(estatus) => {
         if estatus.success() {
-          // self.log("Deploy completed successfully");
-          // let lines = stdout.into_iter().map(|log_lines| log_lines.to_string());
-          // let so = lines.collect::<Vec<String>>();
           let log_message = format!(":sunny: {} deployed successfully in {}s.", self.name, duration.num_seconds());
           self.log(log_message.as_ref());
           self.message(log_message);

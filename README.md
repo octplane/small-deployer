@@ -2,6 +2,8 @@
 
 This is a git webhook client in rust. It can be used to deploy your application automatically or anything you'd like to run after a commit.
 
+Current compatible with Github and Gitlab hooks.
+
 [![Clippy Linting Result](http://clippy.bashy.io/github/octplane/small-deployer/master/badge.svg)](http://clippy.bashy.io/github/octplane/small-deployer/master/log)
 
 # FEATURES
