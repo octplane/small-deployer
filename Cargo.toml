@@ -7,7 +7,7 @@ description = "A small git webhook server that can be used to trigger deploys. S
 repository = "https://github.com/octplane/small-deployer"
 
 keywords = ["deploy", "github", "gitlab", "hook", "slack"]
-readme = "README"
+readme = "README.md"
 
 license= "MIT"
 
@@ -17,4 +17,4 @@ hyper = "~0.7.2"
 time = "~0.1.33"
 
 slack-hook = "0.1.2"
-small-logger = "*"
+small-logger = "0.2.0"
