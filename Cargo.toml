@@ -13,8 +13,13 @@ license= "MIT"
 
 [dependencies]
 rustc-serialize = "0.3"
-hyper = "~0.7.2"
 time = "~0.1.33"
 
 slack-hook = "0.1.2"
 small-logger = "0.2.0"
+openssl = "*"
+
+[dependencies.hyper]
+version = "*"
+features = ["security-framework"]
+
