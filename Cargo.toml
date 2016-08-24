@@ -1,5 +1,5 @@
 [package]
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Pierre Baillet <pierre@baillet.name>"]
 
 name = "small-deployer"
@@ -17,9 +17,9 @@ time = "~0.1.33"
 
 slack-hook = "0.1.2"
 small-logger = "0.2.0"
-openssl = "*"
+openssl = "0.8.2"
 
 [dependencies.hyper]
-version = "*"
+version = "0.9.10"
 features = ["security-framework"]
 
